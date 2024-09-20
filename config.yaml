@@ -1,0 +1,96 @@
+global:
+  resolve_timeout: 5m
+route:
+  receiver: "Slack monitoring-test"
+  group_by:
+    - alertname
+  routes:
+ 
+    - receiver: OpsGenie Test
+      continue: true
+    - receiver: Slack monitoring-test
+
+  group_wait: 30s
+  group_interval: 1m
+  repeat_interval: 2m
+
+inhibit_rules:
+  - target_matchers:
+      - severity =~ warning|info
+    source_matchers:
+      - severity = critical
+    equal:
+      - namespace
+      - alertname
+  - target_matchers:
+      - severity = info
+    source_matchers:
+      - severity = warning
+    equal:
+      - namespace
+      - alertname
+  - target_matchers:
+      - severity = info
+    source_matchers:
+      - alertname = InfoInhibitor
+    equal:
+      - namespace
+  - target_matchers:
+    - alertname = InfoInhibitor
+
+receivers:
+
+  - name: OpsGenie Test
+    opsgenie_configs:
+      # "test" team https://company.app.opsgenie.com/teams/dashboard/111111122222233333334444444455555555/main
+      - api_key: 11111111-2222222-3333-44444444
+        # https://grafana.com/docs/grafana/latest/alerting/configure-notifications/template-notifications/reference/
+        # message: '{{ template "opsgenie.default.message" . }}'
+        message: |-
+          {{ .Status | toUpper }} - {{ .Alerts.Firing | len }} alert(s) firing, {{ .Alerts.Resolved | len }} resolved
+        # description: '{{ template "opsgenie.default.description" . }}'
+        description: |-
+          {{- define "alerts_list" -}}
+          {{- range . }}
+            - { { .CommonLabels.alertname } } { { .CommonLabels.service } } ({{ . }})"
+          {{- end }}
+          {{- end }}
+
+          {{ if gt (len .Alerts.Firing) 0 -}}
+          Alerts firing:
+            {{ template "alerts_list" .Alerts.Firing }}
+          {{- end }}
+          {{ if gt (len .Alerts.Resolved) 0 -}}
+          Alerts resolved:
+            {{ template "alerts_list" .Alerts.Resolved }}
+          {{- end }}
+
+          Head to https://monitoring.company.cloud/alerting/list for more details
+        source: https://monitoring.company.cloud/alerting/list
+
+  - name: Slack monitoring-test
+    slack_configs:
+      - api_url: "https://hooks.slack.com/services/XXXXX/YYYYYY/ZZZZZZZZZZZZZZZZ"
+        channel: '#monitoring-test'
+        color: |-
+          {{ template "slack.color" . }}
+        title: |-
+          {{ template "slack.title" . }}
+        text: |-
+          {{ template "slack.text" . }}
+        actions:
+          - type: button
+            text: 'Runbook :green_book:'
+            url: '{{ (index .Alerts 0).Annotations.runbook_url }}'
+          - type: button
+            text: 'Query :mag:'
+            url: '{{ (index .Alerts 0).GeneratorURL }}'
+          - type: button
+            text: 'Dashboard :chart_with_upwards_trend:'
+            url: '{{ (index .Alerts 0).Annotations.dashboard_url }}'
+          - type: button
+            text: 'Silence :no_bell:'
+            url: '{{ template "__alert_silence_link" . }}'
+
+templates:
+  - /etc/alertmanager/templates.tmpl

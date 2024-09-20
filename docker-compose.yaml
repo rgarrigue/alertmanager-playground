@@ -1,0 +1,9 @@
+services:
+  alertmanager:
+    image: prom/alertmanager
+    volumes:
+      - ./config.yaml:/etc/alertmanager/config.yaml
+      - ./templates.tmpl:/etc/alertmanager/templates.tmpl
+    ports:
+      - "9093:9093"
+    command: --config.file=/etc/alertmanager/config.yaml
