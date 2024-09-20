@@ -4,7 +4,8 @@
         "labels": {
             "alertname": "Test alert",
             "severity": "critical",
-            "instance": "localhost"
+            "instance": "localhost",
+            "test": "true"
         },
         "annotations": {
             "summary": "Test alert summary",
